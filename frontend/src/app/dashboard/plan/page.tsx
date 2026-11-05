@@ -42,12 +42,25 @@ export default function PlanPage() {
         method: 'POST',
       });
       setPlan(adapted);
-      setFeedbackMsg(`Schedule adapted for subjective exertion score ${fatigueScore}/10.`);
+      if (fatigueScore >= 8) {
+        setFeedbackMsg("You've been feeling more tired lately. We've scaled back your mileage this week so you can recover.");
+      } else if (fatigueScore <= 4) {
+        setFeedbackMsg("You're feeling fresh and recovered! We've kept your progression strong.");
+      } else {
+        setFeedbackMsg("Your plan has been updated to match your current energy level.");
+      }
     } catch (e: any) {
       setFeedbackMsg(formatErrorMessage(e.message || e));
     } finally {
       setAdapting(false);
     }
+  };
+
+  const getFatigueLabel = (val: number) => {
+    if (val <= 3) return 'Fresh / Ready to push';
+    if (val <= 6) return 'Normal fatigue';
+    if (val <= 8) return 'Heavy legs / Tired';
+    return 'Very exhausted / High stress';
   };
 
   return (
@@ -57,53 +70,57 @@ export default function PlanPage() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[#eae8e4] gap-4">
           <div>
-            <h1 className="text-2xl font-serif font-bold text-[#1c1c1a]">Adaptive Microcycle</h1>
+            <h1 className="text-2xl font-serif font-bold text-[#1c1c1a]">Your Weekly Training Plan</h1>
             <p className="text-xs text-[#73726d] mt-1">
-              Dynamic 7-day training schedule generated from physiological workload and subjective recovery feedback.
+              Personalized workouts for each day of the week. Adjusts automatically whenever you feel more tired.
             </p>
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-xs font-mono text-[#73726d]">Target Distance:</span>
+            <span className="text-xs font-mono text-[#73726d]">Goal:</span>
             <span className="px-2.5 py-1 rounded bg-[#ffffff] border border-[#eae8e4] text-[#c84b31] font-mono text-xs font-semibold">
-              {plan?.target_race_distance || '5K'}
+              {plan?.target_race_distance || '5K'} Training
             </span>
           </div>
         </div>
 
-        {/* Bayesian Fatigue Feedback Re-optimizer */}
+        {/* How Tired You Feel Slider */}
         <div className="p-6 rounded-lg border border-[#eae8e4] bg-[#ffffff] shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="max-w-xl">
             <div className="flex items-center gap-2 text-sm font-serif font-bold text-[#1c1c1a]">
               <Sliders className="w-4 h-4 text-[#c84b31]" />
-              Subjective Exertion & Fatigue Feedback
+              How Tired Do You Feel Right Now?
             </div>
             <p className="text-xs text-[#73726d] mt-1.5 leading-relaxed">
-              When encountering heightened life fatigue, heavy legs, or elevated stress, inform the optimizer. STRIDE reduces volume or shifts intensity to prevent overreaching.
+              If work was stressful, sleep was poor, or your legs feel unusually heavy, move the slider up. STRIDE will soften upcoming workouts so you don&apos;t burn out.
             </p>
           </div>
 
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2.5">
-              <span className="text-xs font-mono text-[#73726d]">Fatigue:</span>
-              <input
-                type="range"
-                min="1"
-                max="10"
-                value={fatigueScore}
-                onChange={(e) => setFatigueScore(parseInt(e.target.value))}
-                className="w-32 accent-[#c84b31] cursor-pointer"
-              />
-              <span className="text-xs font-mono font-bold text-[#1c1c1a] w-7">{fatigueScore}/10</span>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2.5">
+                <input
+                  type="range"
+                  min="1"
+                  max="10"
+                  value={fatigueScore}
+                  onChange={(e) => setFatigueScore(parseInt(e.target.value))}
+                  className="w-36 accent-[#c84b31] cursor-pointer"
+                />
+                <span className="text-xs font-mono font-bold text-[#1c1c1a] w-7">{fatigueScore}/10</span>
+              </div>
+              <div className="text-[11px] text-[#73726d] font-mono">
+                {getFatigueLabel(fatigueScore)}
+              </div>
             </div>
 
             <button
               onClick={handleAdapt}
               disabled={adapting}
-              className="px-4 py-2 rounded bg-[#c84b31] text-white text-xs font-medium hover:bg-[#b03e26] transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-2"
+              className="px-4 py-2 rounded bg-[#c84b31] text-white text-xs font-medium hover:bg-[#b03e26] transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${adapting ? 'animate-spin' : ''}`} />
-              {adapting ? 'Optimizing...' : 'Adapt Schedule'}
+              {adapting ? 'Adjusting Plan...' : 'Update My Plan'}
             </button>
           </div>
         </div>
@@ -116,12 +133,12 @@ export default function PlanPage() {
         )}
 
         {/* Plan Overview Banner */}
-        <div className="p-4 rounded-lg border border-[#eae8e4] bg-[#ffffff] text-xs text-[#1c1c1a] font-mono flex items-center justify-between">
+        <div className="p-4 rounded-lg border border-[#eae8e4] bg-[#ffffff] text-xs text-[#1c1c1a] font-mono flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
-            <span className="text-[#c84b31] font-semibold">Active Cycle:</span> {plan?.name || 'Weekly Microcycle'}. Planned Mileage: <span className="font-bold">{plan?.current_weekly_km || 0} km</span>.
+            <span className="text-[#c84b31] font-semibold">Planned Volume:</span> <span className="font-bold">{plan?.current_weekly_km || 0} km</span> across the next 7 days.
           </div>
           {plan?.adaptation_reason && (
-            <div className="text-[#73726d] text-[11px] max-w-md text-right hidden sm:block truncate">
+            <div className="text-[#73726d] text-[11px] max-w-lg truncate">
               {plan.adaptation_reason}
             </div>
           )}
@@ -153,22 +170,22 @@ export default function PlanPage() {
 
                 <div className="mt-6 pt-3 border-t border-[#eae8e4] space-y-1.5 font-mono text-xs">
                   <div className="flex items-center justify-between">
-                    <span className="text-[#73726d]">Volume:</span>
-                    <span className="text-[#c84b31] font-bold">{item.distance_km > 0 ? `${item.distance_km} km` : '0 km (Rest)'}</span>
+                    <span className="text-[#73726d]">Distance:</span>
+                    <span className="text-[#c84b31] font-bold">{item.distance_km > 0 ? `${item.distance_km} km` : 'Rest Day'}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-[#73726d]">Pace Target:</span>
-                    <span className="text-[#1c1c1a]">{item.target_pace_range}</span>
+                    <span className="text-[#73726d]">Pace Range:</span>
+                    <span className="text-[#1c1c1a]">{item.target_pace_range !== 'N/A' ? item.target_pace_range : 'No run today'}</span>
                   </div>
                   <div className="text-[10px] text-[#73726d] italic pt-1 font-sans">
-                    Stimulus: {item.purpose}
+                    Why: {item.purpose}
                   </div>
                 </div>
               </div>
             ))
           ) : (
             <div className="col-span-full py-12 text-center text-[#73726d] font-mono text-xs">
-              {loading ? 'Generating schedule...' : 'No schedule generated yet.'}
+              {loading ? 'Building your schedule...' : 'Log a few runs so we can generate your personalized plan.'}
             </div>
           )}
         </div>

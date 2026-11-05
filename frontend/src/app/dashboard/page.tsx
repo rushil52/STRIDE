@@ -27,6 +27,7 @@ export default function DashboardOverviewPage() {
   const [syncingStrava, setSyncingStrava] = useState(false);
   const [dashboardError, setDashboardError] = useState<string | null>(null);
   const [showStravaModal, setShowStravaModal] = useState(false);
+  const [showBalanceInfo, setShowBalanceInfo] = useState(false);
 
   const loadDashboardData = async () => {
     try {
@@ -88,7 +89,7 @@ export default function DashboardOverviewPage() {
     setSyncingStrava(true);
     try {
       const res = await fetchWithAuth('/strava/sync', { method: 'POST' });
-      alert(`Successfully synchronized ${res.synced_activities || 0} activities from Strava.`);
+      alert(`Successfully synced ${res.synced_activities || 0} runs from your Strava account.`);
       await loadDashboardData();
     } catch (e: any) {
       alert(`Strava sync notice: ${formatErrorMessage(e.message || e)}`);
@@ -112,27 +113,47 @@ export default function DashboardOverviewPage() {
       <div className="min-h-screen bg-[#fbfbfa] text-[#1c1c1a] flex items-center justify-center font-mono">
         <div className="flex items-center gap-3 text-sm text-[#73726d]">
           <RefreshCw className="w-4 h-4 text-[#c84b31] animate-spin" />
-          <span>Interpreting physiological telemetry...</span>
+          <span>Loading your running dashboard...</span>
         </div>
       </div>
     );
   }
 
-  // Workload status color badge (subtle editorial tones)
-  const getAcwrBadge = (status: string) => {
+  // Plain-English training balance status
+  const getBalanceBadge = (status: string) => {
     switch (status) {
       case 'optimal':
-        return { label: 'Optimal Load Range', color: 'text-emerald-800 bg-emerald-50 border-emerald-200' };
+        return {
+          title: 'Training Looks Balanced',
+          desc: "You're in a great training groove. Building consistency without increasing your mileage too quickly.",
+          badge: 'Balanced',
+          color: 'text-emerald-800 bg-emerald-50 border-emerald-200'
+        };
       case 'overreaching':
-        return { label: 'Elevated Overreaching', color: 'text-amber-800 bg-amber-50 border-amber-200' };
+        return {
+          title: 'Steep Mileage Increase',
+          desc: 'Your recent running volume is rising faster than usual. Consider taking an extra easy day or resting.',
+          badge: 'High Mileage Jump',
+          color: 'text-amber-800 bg-amber-50 border-amber-200'
+        };
       case 'high_risk':
-        return { label: 'High Fatigue Spike', color: 'text-rose-800 bg-rose-50 border-rose-200' };
+        return {
+          title: 'Fatigue Warning',
+          desc: 'Your recent workload jumped significantly compared to your baseline. Prioritize sleep, food, and recovery.',
+          badge: 'Ease Up',
+          color: 'text-rose-800 bg-rose-50 border-rose-200'
+        };
       default:
-        return { label: 'Baseline Construction', color: 'text-blue-800 bg-blue-50 border-blue-200' };
+        return {
+          title: 'Building Your Baseline',
+          desc: "You're starting out or returning from a break. Keep running comfortably to establish your base.",
+          badge: 'Building Base',
+          color: 'text-blue-800 bg-blue-50 border-blue-200'
+        };
     }
   };
 
-  const acwrBadge = getAcwrBadge(workload?.acwr_status || 'optimal');
+  const balance = getBalanceBadge(workload?.acwr_status || 'optimal');
 
   return (
     <div className="min-h-screen bg-[#fbfbfa] text-[#1c1c1a] flex flex-col">
@@ -142,9 +163,9 @@ export default function DashboardOverviewPage() {
         {/* Header Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-[#eae8e4]">
           <div>
-            <h1 className="text-2xl font-serif font-bold text-[#1c1c1a]">Training Cockpit</h1>
+            <h1 className="text-2xl font-serif font-bold text-[#1c1c1a]">Your Progress</h1>
             <p className="text-xs text-[#73726d] mt-1">
-              Impulse-response training loads, physiological VDOT kinetics & continuous microcycle calibration.
+              Here is how your training is trending, your predicted race times, and your recommended runs for the week.
             </p>
           </div>
 
@@ -158,7 +179,7 @@ export default function DashboardOverviewPage() {
                   className="px-3 py-1.5 rounded border border-[#eae8e4] bg-[#ffffff] text-xs font-medium text-[#1c1c1a] hover:bg-[#f4f3ef] transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 text-[#c84b31] ${syncingStrava ? 'animate-spin' : ''}`} />
-                  {syncingStrava ? 'Syncing...' : 'Sync Strava'}
+                  {syncingStrava ? 'Syncing...' : 'Sync Your Runs'}
                 </button>
                 <button
                   onClick={handleDisconnectStrava}
@@ -185,7 +206,7 @@ export default function DashboardOverviewPage() {
                 className="px-3 py-1.5 rounded bg-[#1c1c1a] text-white text-xs font-medium hover:bg-[#333330] transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
                 <Sparkles className="w-3.5 h-3.5" />
-                {seeding ? 'Calibrating...' : 'Load 60-Day Sample Runs'}
+                {seeding ? 'Loading runs...' : 'Load Sample Running History'}
               </button>
             )}
 
@@ -193,7 +214,7 @@ export default function DashboardOverviewPage() {
               onClick={() => router.push('/dashboard/activities')}
               className="px-3 py-1.5 rounded border border-[#eae8e4] bg-[#ffffff] text-xs font-medium text-[#1c1c1a] hover:bg-[#f4f3ef] transition-colors cursor-pointer"
             >
-              Log Workout
+              Log a Run
             </button>
           </div>
         </div>
@@ -207,20 +228,29 @@ export default function DashboardOverviewPage() {
 
         {/* 4 Stat Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Card 1: ACWR Workload */}
+          {/* Card 1: Training Balance */}
           <div className="p-5 rounded-lg border border-[#eae8e4] bg-[#ffffff] shadow-sm flex flex-col justify-between">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-mono text-[#73726d] uppercase tracking-wider">ACWR Workload</span>
-              <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${acwrBadge.color}`}>
-                {acwrBadge.label}
+              <span className="text-[11px] font-mono text-[#73726d] uppercase tracking-wider flex items-center gap-1">
+                Training Balance
+                <button 
+                  onClick={() => setShowBalanceInfo(!showBalanceInfo)} 
+                  className="text-[#73726d] hover:text-[#1c1c1a] cursor-pointer"
+                  title="What is Training Balance?"
+                >
+                  <Info className="w-3 h-3" />
+                </button>
+              </span>
+              <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${balance.color}`}>
+                {balance.badge}
               </span>
             </div>
             <div className="mt-4">
-              <div className="text-3xl font-serif font-bold text-[#1c1c1a]">
-                {workload?.current_acwr ? workload.current_acwr.toFixed(2) : '--'}
+              <div className="text-xl font-serif font-bold text-[#1c1c1a]">
+                {balance.title}
               </div>
-              <p className="text-[11px] text-[#73726d] mt-1 font-mono">
-                Acute (7d): {workload?.acute_load || 0} vs Chronic (28d): {workload?.chronic_load || 0}
+              <p className="text-[11px] text-[#73726d] mt-1.5 leading-relaxed">
+                {balance.desc}
               </p>
             </div>
           </div>
@@ -228,8 +258,8 @@ export default function DashboardOverviewPage() {
           {/* Card 2: Weekly Mileage */}
           <div className="p-5 rounded-lg border border-[#eae8e4] bg-[#ffffff] shadow-sm flex flex-col justify-between">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-mono text-[#73726d] uppercase tracking-wider">7-Day Volume</span>
-              <span className="text-xs font-mono text-[#c84b31] font-semibold">{workload?.weekly_progress_pct || 0}% goal</span>
+              <span className="text-[11px] font-mono text-[#73726d] uppercase tracking-wider">This Week</span>
+              <span className="text-xs font-mono text-[#c84b31] font-semibold">{workload?.weekly_progress_pct || 0}% of goal</span>
             </div>
             <div className="mt-4">
               <div className="text-3xl font-serif font-bold text-[#1c1c1a]">
@@ -241,15 +271,18 @@ export default function DashboardOverviewPage() {
                   style={{ width: `${Math.min(100, workload?.weekly_progress_pct || 0)}%` }}
                 />
               </div>
+              <p className="text-[11px] text-[#73726d] mt-1 font-mono">
+                Goal: {workload?.weekly_goal_km || 30} km / week
+              </p>
             </div>
           </div>
 
-          {/* Card 3: 5K ML Time Prediction */}
+          {/* Card 3: 5K Race Time Prediction */}
           <div className="p-5 rounded-lg border border-[#eae8e4] bg-[#ffffff] shadow-sm flex flex-col justify-between">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-mono text-[#73726d] uppercase tracking-wider">Projected 5K Pace</span>
+              <span className="text-[11px] font-mono text-[#73726d] uppercase tracking-wider">Predicted 5K Time</span>
               <span className="text-[10px] font-mono text-[#1c1c1a] bg-[#f4f3ef] px-1.5 py-0.5 rounded border border-[#eae8e4]">
-                90% Conf
+                Estimated
               </span>
             </div>
             <div className="mt-4">
@@ -257,7 +290,7 @@ export default function DashboardOverviewPage() {
                 {predictions[0]?.predicted_time_formatted || '--:--'}
               </div>
               <p className="text-[11px] text-[#73726d] mt-1 font-mono">
-                Range: {predictions[0]?.lower_bound_formatted || '--'} - {predictions[0]?.upper_bound_formatted || '--'}
+                Likely Range: {predictions[0]?.lower_bound_formatted || '--'} – {predictions[0]?.upper_bound_formatted || '--'}
               </p>
             </div>
           </div>
@@ -265,40 +298,55 @@ export default function DashboardOverviewPage() {
           {/* Card 4: Historical Distance */}
           <div className="p-5 rounded-lg border border-[#eae8e4] bg-[#ffffff] shadow-sm flex flex-col justify-between">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-mono text-[#73726d] uppercase tracking-wider">Recorded Runs</span>
+              <span className="text-[11px] font-mono text-[#73726d] uppercase tracking-wider">Total Runs</span>
               <span className="text-xs font-mono text-[#73726d]">Avg: {summary?.average_pace_formatted || '--:--'}</span>
             </div>
             <div className="mt-4">
               <div className="text-3xl font-serif font-bold text-[#1c1c1a]">
-                {summary?.total_runs || 0} <span className="text-sm font-normal text-[#73726d]">activities</span>
+                {summary?.total_runs || 0} <span className="text-sm font-normal text-[#73726d]">runs</span>
               </div>
               <p className="text-[11px] text-[#73726d] mt-1 font-mono">
-                Cumulative: {summary?.total_distance_km || 0} km logged
+                {summary?.total_distance_km || 0} km logged so far
               </p>
             </div>
           </div>
         </div>
 
-        {/* Charts Grid: Training Load EWMA & Mileage Timeline */}
+        {/* Optional Expandable explanation for Training Balance */}
+        {showBalanceInfo && (
+          <div className="p-4 rounded-lg bg-[#f4f3ef] border border-[#eae8e4] text-xs text-[#1c1c1a] space-y-1">
+            <div className="font-semibold flex items-center justify-between">
+              <span>How We Calculate Training Balance</span>
+              <button onClick={() => setShowBalanceInfo(false)} className="text-[#73726d] hover:text-[#1c1c1a]">Close</button>
+            </div>
+            <p className="text-[#73726d] leading-relaxed">
+              We compare how much running you have done in the past 7 days against your rolling 28-day baseline (traditionally called the Acute-to-Chronic Workload Ratio). When your recent training is in line with your historical base, you build fitness safely. If recent training spikes too quickly, STRIDE warns you so you can avoid overtraining.
+            </p>
+          </div>
+        )}
+
+        {/* Charts Grid: Training Balance Trend & Race Predictions */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Chart: ACWR EWMA Timeline */}
+          {/* Main Chart: Training Trend Timeline */}
           <div className="lg:col-span-2 p-6 rounded-lg border border-[#eae8e4] bg-[#ffffff] shadow-sm flex flex-col">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-2 gap-2">
               <div>
-                <h3 className="text-sm font-serif font-bold text-[#1c1c1a]">Acute vs Chronic Workload Ratio (EWMA)</h3>
-                <p className="text-xs text-[#73726d]">Values between 0.8 and 1.3 represent optimal progressive conditioning</p>
+                <h3 className="text-sm font-serif font-bold text-[#1c1c1a]">Your Training Trend (Last 30 Days)</h3>
+                <p className="text-xs text-[#73726d]">
+                  Compares your recent effort against your long-term base. Steady curves show good, consistent training.
+                </p>
               </div>
               <div className="flex items-center gap-4 text-xs font-mono">
                 <span className="flex items-center gap-1.5 text-[#73726d]">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#c84b31] inline-block" /> Acute Load (7d)
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#c84b31] inline-block" /> Past 7 Days (Recent)
                 </span>
                 <span className="flex items-center gap-1.5 text-[#73726d]">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#1c1c1a] inline-block" /> Chronic Base (28d)
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#1c1c1a] inline-block" /> Past Month (Base)
                 </span>
               </div>
             </div>
 
-            <div className="h-64 w-full">
+            <div className="h-64 w-full mt-4">
               {workload?.chart_data && workload.chart_data.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={workload.chart_data}>
@@ -319,9 +367,13 @@ export default function DashboardOverviewPage() {
                       fontSize={11} 
                       tickFormatter={(v) => typeof v === 'string' ? v.slice(5) : ''} 
                     />
-                    <YAxis stroke="#73726d" fontSize={11} />
+                    <YAxis stroke="#73726d" fontSize={11} label={{ value: 'Training Load Points', angle: -90, position: 'insideLeft', style: { fill: '#73726d', fontSize: 10 } }} />
                     <Tooltip 
                       contentStyle={{ backgroundColor: '#ffffff', borderColor: '#eae8e4', borderRadius: '6px', fontSize: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }} 
+                      formatter={(val: any, name: any) => [
+                        typeof val === 'number' ? val.toFixed(1) : val,
+                        name === 'acute_workload_7d' ? 'Past 7 Days Effort' : 'Monthly Base'
+                      ]}
                     />
                     <Area type="monotone" dataKey="acute_workload_7d" stroke="#c84b31" strokeWidth={2} fillOpacity={1} fill="url(#acuteGrad)" />
                     <Area type="monotone" dataKey="chronic_workload_28d" stroke="#1c1c1a" strokeWidth={2} fillOpacity={1} fill="url(#chronicGrad)" />
@@ -329,13 +381,13 @@ export default function DashboardOverviewPage() {
                 </ResponsiveContainer>
               ) : (
                 <div className="h-full flex flex-col items-center justify-center text-[#73726d] text-xs font-mono gap-2 border border-dashed border-[#eae8e4] rounded">
-                  <div>No historical activity data recorded.</div>
+                  <div>Keep logging your runs. We will plot your training trend as your data builds.</div>
                   <button
                     onClick={handleSeedData}
                     disabled={seeding}
                     className="text-[#c84b31] underline hover:text-[#b03e26] cursor-pointer"
                   >
-                    Load sample training history
+                    Or load sample data to explore
                   </button>
                 </div>
               )}
@@ -346,8 +398,8 @@ export default function DashboardOverviewPage() {
           <div className="p-6 rounded-lg border border-[#eae8e4] bg-[#ffffff] shadow-sm flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between pb-3 border-b border-[#eae8e4]">
-                <h3 className="text-sm font-serif font-bold text-[#1c1c1a]">Performance Projections</h3>
-                <span className="text-[10px] font-mono text-[#73726d]">Daniels & Riegel</span>
+                <h3 className="text-sm font-serif font-bold text-[#1c1c1a]">Race Time Predictions</h3>
+                <span className="text-[10px] font-mono text-[#73726d]">Based on recent runs</span>
               </div>
 
               <div className="mt-4 space-y-3">
@@ -359,39 +411,39 @@ export default function DashboardOverviewPage() {
                         <span className="text-xs font-mono text-[#c84b31] font-bold">{p.predicted_time_formatted}</span>
                       </div>
                       <div className="mt-1.5 flex items-center justify-between text-[11px] text-[#73726d] font-mono">
-                        <span>Confidence Band:</span>
-                        <span>{p.lower_bound_formatted || '--'} - {p.upper_bound_formatted || '--'}</span>
+                        <span>Prediction Range:</span>
+                        <span>{p.lower_bound_formatted || '--'} – {p.upper_bound_formatted || '--'}</span>
                       </div>
                     </div>
                   ))
                 ) : (
                   <div className="text-xs text-[#73726d] py-6 text-center font-mono">
-                    Log at least 1 run to calculate projections.
+                    Log at least 1 run to calculate your predicted race times.
                   </div>
                 )}
               </div>
             </div>
 
             <div className="mt-4 pt-3 border-t border-[#eae8e4] text-[11px] text-[#73726d] leading-relaxed">
-              Predictions merge Jack Daniels oxygen uptake formulas with Pete Riegel power decay, weighted by recent consistency and 6-week volume adequacy.
+              These times reflect what your recent training supports today. As your consistency and long runs improve, your estimates will update automatically.
             </div>
           </div>
         </div>
 
-        {/* Current Adaptive Training Microcycle */}
+        {/* Current Weekly Plan */}
         <div className="p-6 rounded-lg border border-[#eae8e4] bg-[#ffffff] shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[#eae8e4] gap-2">
             <div>
               <div className="flex items-center gap-2">
                 <CalendarDays className="w-4 h-4 text-[#c84b31]" />
-                <h3 className="text-sm font-serif font-bold text-[#1c1c1a]">Current Microcycle Schedule</h3>
+                <h3 className="text-sm font-serif font-bold text-[#1c1c1a]">Your Weekly Plan</h3>
                 <span className="text-xs font-mono px-2 py-0.5 rounded bg-[#f4f3ef] border border-[#eae8e4] text-[#1c1c1a]">
-                  Volume: {plan?.current_weekly_km || 0} km
+                  Total: {plan?.current_weekly_km || 0} km
                 </span>
               </div>
               {plan?.adaptation_reason && (
                 <p className="text-xs text-[#73726d] mt-1 font-mono">
-                  {plan.adaptation_reason}
+                  Why this plan: {plan.adaptation_reason}
                 </p>
               )}
             </div>
@@ -400,7 +452,7 @@ export default function DashboardOverviewPage() {
               onClick={() => router.push('/dashboard/plan')}
               className="text-xs text-[#73726d] hover:text-[#1c1c1a] flex items-center gap-1 font-medium transition-colors cursor-pointer"
             >
-              Adjust Plan & Fatigue <ChevronRight className="w-3.5 h-3.5" />
+              Adjust Plan & How You Feel <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
 
@@ -428,7 +480,7 @@ export default function DashboardOverviewPage() {
               ))
             ) : (
               <div className="col-span-full py-8 text-center text-[#73726d] font-mono text-xs">
-                Microcycle scheduled when workouts are calibrated.
+                Your schedule will appear once your initial runs are logged.
               </div>
             )}
           </div>
@@ -441,13 +493,13 @@ export default function DashboardOverviewPage() {
           <div className="w-full max-w-lg bg-[#ffffff] border border-[#eae8e4] rounded-xl p-6 shadow-xl space-y-4">
             <div className="flex items-center gap-2">
               <Link2 className="w-5 h-5 text-[#c84b31]" />
-              <h3 className="text-base font-serif font-bold text-[#1c1c1a]">Strava API Setup Required</h3>
+              <h3 className="text-base font-serif font-bold text-[#1c1c1a]">Strava Account Setup</h3>
             </div>
             <p className="text-xs text-[#73726d] leading-relaxed">
-              To connect your personal Strava athlete account, STRIDE requires your registered application keys from the Strava Developer Portal.
+              To connect your real Strava athlete account, STRIDE needs your personal application keys from the Strava website.
             </p>
             <div className="p-3.5 rounded bg-[#fbfbfa] border border-[#eae8e4] space-y-2 text-xs font-mono">
-              <div className="font-bold text-[#1c1c1a]">Required Steps:</div>
+              <div className="font-bold text-[#1c1c1a]">Simple steps to link:</div>
               <ol className="list-decimal pl-4 space-y-1 text-[#73726d]">
                 <li>Visit <a href="https://www.strava.com/settings/api" target="_blank" rel="noreferrer" className="text-[#c84b31] underline inline-flex items-center gap-0.5">strava.com/settings/api <ExternalLink className="w-3 h-3" /></a></li>
                 <li>Set <strong>Authorization Callback Domain</strong> to: <code className="bg-[#f4f3ef] px-1 py-0.5 rounded text-[#1c1c1a]">localhost:3000</code></li>
@@ -466,7 +518,7 @@ export default function DashboardOverviewPage() {
                 onClick={() => setShowStravaModal(false)}
                 className="px-4 py-2 rounded bg-[#1c1c1a] text-white text-xs font-medium hover:bg-[#333330]"
               >
-                Understood
+                Close
               </button>
             </div>
           </div>

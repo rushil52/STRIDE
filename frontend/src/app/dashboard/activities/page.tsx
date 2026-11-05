@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Navigation } from '@/components/Navigation';
 import { fetchWithAuth, formatErrorMessage } from '@/lib/api';
 import { Activity, User } from '@/types';
-import { Activity as ActivityIcon, Upload, Plus, Sparkles, Heart, AlertCircle } from 'lucide-react';
+import { Activity as ActivityIcon, Upload, Plus, Sparkles, Heart, AlertCircle, Info } from 'lucide-react';
 
 export default function ActivitiesPage() {
   const [user, setUser] = useState<User | null>(null);
@@ -15,7 +15,7 @@ export default function ActivitiesPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   
   // Manual Run Form State
-  const [title, setTitle] = useState('Morning Aerobic Run');
+  const [title, setTitle] = useState('Easy Morning Run');
   const [distanceKm, setDistanceKm] = useState('5.0');
   const [durationMin, setDurationMin] = useState('25.0');
   const [avgHr, setAvgHr] = useState('152');
@@ -104,16 +104,16 @@ export default function ActivitiesPage() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[#eae8e4] gap-4">
           <div>
-            <h1 className="text-2xl font-serif font-bold text-[#1c1c1a]">Activity Log</h1>
+            <h1 className="text-2xl font-serif font-bold text-[#1c1c1a]">Your Running History</h1>
             <p className="text-xs text-[#73726d] mt-1">
-              Historical running log imported via Strava API, GPX/FIT uploads or manual telemetry.
+              All your runs synced from Strava, uploaded from watch files (GPX/FIT), or entered manually.
             </p>
           </div>
 
           <div className="flex items-center gap-2.5">
             <label className="px-3.5 py-1.5 rounded border border-[#eae8e4] bg-[#ffffff] text-xs font-medium text-[#1c1c1a] hover:bg-[#f4f3ef] transition-colors cursor-pointer flex items-center gap-1.5">
               <Upload className="w-3.5 h-3.5 text-[#c84b31]" />
-              {uploading ? 'Processing file...' : 'Upload GPX / FIT'}
+              {uploading ? 'Reading file...' : 'Upload Run File'}
               <input type="file" accept=".gpx,.fit" onChange={handleFileUpload} className="hidden" />
             </label>
 
@@ -122,7 +122,7 @@ export default function ActivitiesPage() {
               className="px-3.5 py-1.5 rounded bg-[#c84b31] text-white text-xs font-medium hover:bg-[#b03e26] transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
             >
               <Plus className="w-3.5 h-3.5" />
-              Log Manual Run
+              Add a Run Manually
             </button>
           </div>
         </div>
@@ -140,13 +140,13 @@ export default function ActivitiesPage() {
             <table className="w-full text-left text-xs">
               <thead className="bg-[#fbfbfa] border-b border-[#eae8e4] text-[#73726d] font-mono uppercase tracking-wider">
                 <tr>
-                  <th className="py-3 px-4 font-normal">Workout</th>
+                  <th className="py-3 px-4 font-normal">Workout Name</th>
                   <th className="py-3 px-4 font-normal">Date</th>
                   <th className="py-3 px-4 font-normal">Distance</th>
-                  <th className="py-3 px-4 font-normal">Avg Pace</th>
-                  <th className="py-3 px-4 font-normal">Avg HR</th>
-                  <th className="py-3 px-4 font-normal">TRIMP Load</th>
-                  <th className="py-3 px-4 font-normal">Category</th>
+                  <th className="py-3 px-4 font-normal">Average Pace</th>
+                  <th className="py-3 px-4 font-normal">Heart Rate</th>
+                  <th className="py-3 px-4 font-normal">Training Effort</th>
+                  <th className="py-3 px-4 font-normal">Type</th>
                   <th className="py-3 px-4 font-normal">Source</th>
                 </tr>
               </thead>
@@ -166,7 +166,9 @@ export default function ActivitiesPage() {
                           </span>
                         ) : '--'}
                       </td>
-                      <td className="py-3.5 px-4 text-[#73726d]">{act.trimp_score ? act.trimp_score.toFixed(1) : '--'}</td>
+                      <td className="py-3.5 px-4 text-[#73726d]">
+                        {act.trimp_score ? `${Math.round(act.trimp_score)} pts` : '--'}
+                      </td>
                       <td className="py-3.5 px-4">
                         <span className="px-2 py-0.5 rounded text-[10px] uppercase font-sans font-medium bg-[#f4f3ef] text-[#1c1c1a] border border-[#eae8e4]">
                           {act.workout_category}
@@ -178,7 +180,7 @@ export default function ActivitiesPage() {
                 ) : (
                   <tr>
                     <td colSpan={8} className="py-12 text-center text-[#73726d] font-sans">
-                      {loading ? 'Retrieving workout log...' : 'No activities recorded yet. Import GPX files or log a workout above.'}
+                      {loading ? 'Retrieving your runs...' : 'No runs logged yet. Connect Strava or upload a GPX/FIT file above to begin.'}
                     </td>
                   </tr>
                 )}
@@ -191,7 +193,7 @@ export default function ActivitiesPage() {
         {showAddModal && (
           <div className="fixed inset-0 bg-black/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
             <div className="w-full max-w-md bg-[#ffffff] border border-[#eae8e4] rounded-xl p-6 shadow-xl">
-              <h2 className="text-lg font-serif font-bold text-[#1c1c1a] mb-4">Log Running Activity</h2>
+              <h2 className="text-lg font-serif font-bold text-[#1c1c1a] mb-4">Enter a Completed Run</h2>
 
               <form onSubmit={handleManualSubmit} className="space-y-4">
                 <div>
@@ -220,7 +222,7 @@ export default function ActivitiesPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-mono uppercase text-[#73726d] mb-1">Duration (Minutes)</label>
+                    <label className="block text-xs font-mono uppercase text-[#73726d] mb-1">Time (Minutes)</label>
                     <input
                       type="number"
                       step="0.1"
@@ -235,7 +237,7 @@ export default function ActivitiesPage() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-mono uppercase text-[#73726d] mb-1">Avg Heart Rate</label>
+                    <label className="block text-xs font-mono uppercase text-[#73726d] mb-1">Avg Heart Rate (Optional)</label>
                     <input
                       type="number"
                       min="40"
@@ -248,7 +250,7 @@ export default function ActivitiesPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-mono uppercase text-[#73726d] mb-1">RPE Exertion (1-10)</label>
+                    <label className="block text-xs font-mono uppercase text-[#73726d] mb-1">How Hard Did It Feel? (1–10)</label>
                     <input
                       type="number"
                       min="1"
@@ -261,17 +263,17 @@ export default function ActivitiesPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-mono uppercase text-[#73726d] mb-1">Category</label>
+                  <label className="block text-xs font-mono uppercase text-[#73726d] mb-1">Workout Type</label>
                   <select
                     value={workoutCat}
                     onChange={(e) => setWorkoutCat(e.target.value)}
                     className="w-full px-3 py-2 rounded bg-[#ffffff] border border-[#eae8e4] text-sm text-[#1c1c1a] focus:outline-none focus:border-[#c84b31]"
                   >
-                    <option value="easy">Easy Aerobic</option>
-                    <option value="tempo">Threshold Tempo</option>
-                    <option value="interval">Interval VO2max</option>
-                    <option value="long_run">Endurance Long Run</option>
-                    <option value="recovery">Active Recovery</option>
+                    <option value="easy">Easy Aerobic Run</option>
+                    <option value="tempo">Faster Pace (Tempo)</option>
+                    <option value="interval">Fast Repeats (Intervals)</option>
+                    <option value="long_run">Long Endurance Run</option>
+                    <option value="recovery">Gentle Recovery Jog</option>
                   </select>
                 </div>
 
@@ -287,7 +289,7 @@ export default function ActivitiesPage() {
                     type="submit"
                     className="px-4 py-2 rounded bg-[#c84b31] text-white text-xs font-medium hover:bg-[#b03e26]"
                   >
-                    Save Activity
+                    Save Run
                   </button>
                 </div>
               </form>
