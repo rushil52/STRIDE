@@ -1,6 +1,7 @@
 from typing import Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from app.core.config import settings
 from app.db.session import get_db
 from app.models.user import User
@@ -11,11 +12,33 @@ from app.ml.sports_science import calculate_banister_trimp
 
 router = APIRouter()
 
+@router.get("/status")
+def get_strava_status(current_user: User = Depends(get_current_user)) -> Dict[str, Any]:
+    """
+    Returns the Strava connection status, whether API credentials are configured,
+    and athlete information.
+    """
+    configured = strava_client.is_configured()
+    connected = bool(current_user.strava_access_token)
+    return {
+        "is_api_configured": configured,
+        "is_connected": connected,
+        "athlete_id": current_user.strava_athlete_id,
+        "setup_required": not configured
+    }
+
 @router.get("/connect-url")
 def get_strava_connect_url(current_user: User = Depends(get_current_user)) -> Dict[str, str]:
     """
     Returns the Strava OAuth2 authorization URL with athlete state token.
+    Throws a clear 400 error if client credentials are not configured.
     """
+    if not strava_client.is_configured():
+        raise HTTPException(
+            status_code=400,
+            detail="Strava API credentials are not configured. To link your personal Strava account, "
+                   "add your STRAVA_CLIENT_ID and STRAVA_CLIENT_SECRET to backend/.env."
+        )
     state = f"user_{current_user.id}"
     url = strava_client.get_authorization_url(state=state)
     return {"url": url}
@@ -32,7 +55,7 @@ async def exchange_strava_code(
     try:
         token_data = await strava_client.exchange_code_for_token(code)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to exchange Strava code: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
         
     athlete = token_data.get("athlete", {})
     current_user.strava_athlete_id = athlete.get("id")
@@ -44,25 +67,64 @@ async def exchange_strava_code(
     await db.refresh(current_user)
     return {"status": "success", "athlete_id": current_user.strava_athlete_id}
 
+@router.post("/disconnect")
+async def disconnect_strava(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Disconnects the athlete's Strava integration and clears stored tokens.
+    """
+    current_user.strava_athlete_id = None
+    current_user.strava_access_token = None
+    current_user.strava_refresh_token = None
+    current_user.strava_token_expires_at = None
+    await db.commit()
+    await db.refresh(current_user)
+    return {"status": "success", "message": "Strava account disconnected."}
+
 @router.post("/sync")
 async def sync_strava_activities(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Fetches running activities from Strava, deduplicates, and saves into database.
+    Fetches running activities from Strava, handles token auto-refresh,
+    deduplicates against existing external IDs, and saves into database.
     """
     if not current_user.strava_access_token:
         raise HTTPException(status_code=400, detail="Strava account is not connected.")
         
     try:
-        raw_runs = await strava_client.get_athlete_activities(current_user.strava_access_token)
+        # Validate or refresh token
+        valid_token, refreshed = await strava_client.get_valid_token(
+            current_user.strava_access_token,
+            current_user.strava_refresh_token,
+            current_user.strava_token_expires_at
+        )
+        if refreshed:
+            current_user.strava_access_token = refreshed["access_token"]
+            current_user.strava_refresh_token = refreshed["refresh_token"]
+            current_user.strava_token_expires_at = refreshed["expires_at"]
+            await db.commit()
+
+        raw_runs = await strava_client.get_athlete_activities(valid_token)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Error communicating with Strava API: {str(e)}")
         
+    # Get all existing external_ids for user to prevent duplicate imports
+    stmt = select(Activity.external_id).where(
+        Activity.user_id == current_user.id,
+        Activity.source == "strava"
+    )
+    existing_ids = set((await db.execute(stmt)).scalars().all())
+
     imported_count = 0
     for raw in raw_runs:
         mapped = strava_client.map_strava_to_activity_dict(raw)
+        if mapped["external_id"] in existing_ids:
+            continue
+
         trimp = calculate_banister_trimp(
             duration_minutes=mapped["moving_time_seconds"] / 60.0,
             avg_hr=mapped["average_heartrate"],

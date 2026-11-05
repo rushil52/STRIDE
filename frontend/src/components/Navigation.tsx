@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Activity, BarChart2, Calendar, Compass, LogOut, Flame, ShieldCheck } from 'lucide-react';
+import { BarChart3, Activity, CalendarDays, Compass, LogOut, ArrowUpRight } from 'lucide-react';
 import { clearStoredToken } from '@/lib/api';
 
 export function Navigation({ user }: { user?: any }) {
@@ -14,22 +14,24 @@ export function Navigation({ user }: { user?: any }) {
   };
 
   const navItems = [
-    { label: 'Overview', href: '/dashboard', icon: BarChart2 },
+    { label: 'Overview', href: '/dashboard', icon: BarChart3 },
     { label: 'Activities', href: '/dashboard/activities', icon: Activity },
-    { label: 'Adaptive Plan', href: '/dashboard/plan', icon: Calendar },
-    { label: 'Research & ML', href: '/dashboard/research', icon: Compass },
+    { label: 'Adaptive Plan', href: '/dashboard/plan', icon: CalendarDays },
+    { label: 'Methodology', href: '/dashboard/research', icon: Compass },
   ];
 
   return (
-    <nav className="border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-md sticky top-0 z-50">
+    <nav className="border-b border-[#eae8e4] bg-[#ffffff] sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          <div className="flex items-center gap-8">
-            <Link href="/" className="flex items-center gap-2.5 font-bold tracking-tight text-white group">
-              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 group-hover:bg-emerald-500 group-hover:text-black transition-all">
-                <Flame className="w-4 h-4" />
-              </div>
-              <span className="text-xl tracking-wider font-mono font-black">STRIDE</span>
+          <div className="flex items-center gap-10">
+            <Link href="/" className="flex items-center gap-2 group">
+              <span className="text-xl font-bold tracking-tight text-[#1c1c1a] font-serif">
+                STRIDE
+              </span>
+              <span className="text-[11px] font-mono text-[#c84b31] uppercase tracking-wider font-semibold">
+                Running
+              </span>
             </Link>
 
             <div className="hidden md:flex items-center gap-1">
@@ -40,13 +42,13 @@ export function Navigation({ user }: { user?: any }) {
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                    className={`flex items-center gap-2 px-3.5 py-1.5 rounded text-sm font-medium transition-colors ${
                       isActive
-                        ? 'bg-zinc-800 text-white shadow-sm'
-                        : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'
+                        ? 'bg-[#f4f3ef] text-[#1c1c1a] font-semibold'
+                        : 'text-[#73726d] hover:text-[#1c1c1a] hover:bg-[#faf9f6]'
                     }`}
                   >
-                    <Icon className="w-4 h-4" />
+                    <Icon className="w-4 h-4 text-[#73726d]" />
                     {item.label}
                   </Link>
                 );
@@ -56,19 +58,19 @@ export function Navigation({ user }: { user?: any }) {
 
           <div className="flex items-center gap-4">
             {user && (
-              <div className="hidden sm:flex items-center gap-3 pr-2">
+              <div className="hidden sm:flex items-center gap-3 pr-2 border-r border-[#eae8e4]">
                 <div className="text-right">
-                  <div className="text-xs font-semibold text-zinc-200">{user.full_name || user.email}</div>
-                  <div className="text-[10px] text-zinc-500 font-mono">VDOT Target: {user.target_race_distance}</div>
+                  <div className="text-xs font-semibold text-[#1c1c1a]">{user.full_name || user.email}</div>
+                  <div className="text-[11px] text-[#73726d]">Goal: {user.target_race_distance || '5K'}</div>
                 </div>
-                <div className="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-300 font-mono text-xs">
-                  {(user.full_name || user.email || 'U')[0].toUpperCase()}
+                <div className="w-8 h-8 rounded-full bg-[#f4f3ef] border border-[#eae8e4] flex items-center justify-center text-[#1c1c1a] font-semibold text-xs">
+                  {(user.full_name || user.email || 'A')[0].toUpperCase()}
                 </div>
               </div>
             )}
             <button
               onClick={handleLogout}
-              className="p-2 rounded-md text-zinc-400 hover:text-rose-400 hover:bg-zinc-900 transition-colors"
+              className="p-2 rounded text-[#73726d] hover:text-[#c84b31] hover:bg-[#f4f3ef] transition-colors cursor-pointer"
               title="Sign Out"
             >
               <LogOut className="w-4 h-4" />

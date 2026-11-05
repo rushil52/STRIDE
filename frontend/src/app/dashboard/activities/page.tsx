@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { Navigation } from '@/components/Navigation';
-import { fetchWithAuth } from '@/lib/api';
+import { fetchWithAuth, formatErrorMessage } from '@/lib/api';
 import { Activity, User } from '@/types';
-import { Activity as ActivityIcon, Upload, Plus, Sparkles, Filter, ChevronRight, Heart, Timer } from 'lucide-react';
+import { Activity as ActivityIcon, Upload, Plus, Sparkles, Heart, AlertCircle } from 'lucide-react';
 
 export default function ActivitiesPage() {
   const [user, setUser] = useState<User | null>(null);
@@ -12,25 +12,27 @@ export default function ActivitiesPage() {
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   
   // Manual Run Form State
-  const [title, setTitle] = useState('Morning Run');
+  const [title, setTitle] = useState('Morning Aerobic Run');
   const [distanceKm, setDistanceKm] = useState('5.0');
   const [durationMin, setDurationMin] = useState('25.0');
-  const [avgHr, setAvgHr] = useState('155');
+  const [avgHr, setAvgHr] = useState('152');
   const [rpe, setRpe] = useState('6');
   const [workoutCat, setWorkoutCat] = useState('easy');
 
   const loadData = async () => {
     try {
+      setErrorMessage(null);
       const [u, acts] = await Promise.all([
         fetchWithAuth('/auth/me'),
         fetchWithAuth('/activities/?limit=100'),
       ]);
       setUser(u);
       setActivities(acts);
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      setErrorMessage(formatErrorMessage(e.message || e));
     } finally {
       setLoading(false);
     }
@@ -45,11 +47,16 @@ export default function ActivitiesPage() {
     try {
       const distMeters = parseFloat(distanceKm) * 1000.0;
       const durationSec = Math.round(parseFloat(durationMin) * 60.0);
+
+      if (distMeters <= 0 || durationSec <= 0) {
+        alert('Distance and duration must be greater than zero.');
+        return;
+      }
       
       await fetchWithAuth('/activities/manual', {
         method: 'POST',
         body: JSON.stringify({
-          title,
+          title: title.trim() || 'Running Workout',
           start_date: new Date().toISOString(),
           distance_meters: distMeters,
           moving_time_seconds: durationSec,
@@ -63,7 +70,7 @@ export default function ActivitiesPage() {
       setShowAddModal(false);
       await loadData();
     } catch (err: any) {
-      alert(`Error saving run: ${err.message}`);
+      alert(`Error saving run: ${formatErrorMessage(err.message || err)}`);
     }
   };
 
@@ -76,105 +83,102 @@ export default function ActivitiesPage() {
     setUploading(true);
 
     try {
-      const token = localStorage.getItem('stride_token');
-      const res = await fetch('http://127.0.0.1:8000/api/v1/activities/upload', {
+      await fetchWithAuth('/activities/upload', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
         body: formData,
       });
 
-      if (!res.ok) {
-        throw new Error('Upload failed');
-      }
-
       await loadData();
     } catch (err: any) {
-      alert(`File upload failed: ${err.message}`);
+      alert(`File upload failed: ${formatErrorMessage(err.message || err)}`);
     } finally {
       setUploading(false);
+      e.target.value = '';
     }
   };
 
   return (
-    <div className="min-h-screen bg-black text-zinc-100 flex flex-col">
+    <div className="min-h-screen bg-[#fbfbfa] text-[#1c1c1a] flex flex-col">
       <Navigation user={user} />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-zinc-900 gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[#eae8e4] gap-4">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-              <ActivityIcon className="w-5 h-5 text-emerald-400" />
-              Activity Stream
-            </h1>
-            <p className="text-xs text-zinc-400 mt-1">
+            <h1 className="text-2xl font-serif font-bold text-[#1c1c1a]">Activity Log</h1>
+            <p className="text-xs text-[#73726d] mt-1">
               Historical running log imported via Strava API, GPX/FIT uploads or manual telemetry.
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
-            <label className="px-3.5 py-1.5 rounded-lg border border-zinc-800 bg-zinc-900 text-zinc-200 text-xs font-medium hover:bg-zinc-800 transition-colors cursor-pointer flex items-center gap-2">
-              <Upload className="w-3.5 h-3.5" />
-              {uploading ? 'Processing...' : 'Upload GPX / FIT'}
+          <div className="flex items-center gap-2.5">
+            <label className="px-3.5 py-1.5 rounded border border-[#eae8e4] bg-[#ffffff] text-xs font-medium text-[#1c1c1a] hover:bg-[#f4f3ef] transition-colors cursor-pointer flex items-center gap-1.5">
+              <Upload className="w-3.5 h-3.5 text-[#c84b31]" />
+              {uploading ? 'Processing file...' : 'Upload GPX / FIT'}
               <input type="file" accept=".gpx,.fit" onChange={handleFileUpload} className="hidden" />
             </label>
 
             <button
               onClick={() => setShowAddModal(true)}
-              className="px-3.5 py-1.5 rounded-lg bg-emerald-500 text-black text-xs font-semibold hover:bg-emerald-400 transition-all flex items-center gap-2 cursor-pointer shadow-sm"
+              className="px-3.5 py-1.5 rounded bg-[#c84b31] text-white text-xs font-medium hover:bg-[#b03e26] transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
             >
               <Plus className="w-3.5 h-3.5" />
-              Log Manual Workout
+              Log Manual Run
             </button>
           </div>
         </div>
 
+        {errorMessage && (
+          <div className="p-4 rounded bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+            <span>{errorMessage}</span>
+          </div>
+        )}
+
         {/* Activity Table */}
-        <div className="rounded-xl border border-zinc-800/80 bg-zinc-950 overflow-hidden">
+        <div className="rounded-lg border border-[#eae8e4] bg-[#ffffff] shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-zinc-900/60 border-b border-zinc-800 text-zinc-400 font-mono uppercase tracking-wider">
+              <thead className="bg-[#fbfbfa] border-b border-[#eae8e4] text-[#73726d] font-mono uppercase tracking-wider">
                 <tr>
-                  <th className="py-3 px-4">Workout</th>
-                  <th className="py-3 px-4">Date</th>
-                  <th className="py-3 px-4">Distance</th>
-                  <th className="py-3 px-4">Avg Pace</th>
-                  <th className="py-3 px-4">Avg HR</th>
-                  <th className="py-3 px-4">TRIMP Load</th>
-                  <th className="py-3 px-4">Category</th>
-                  <th className="py-3 px-4">Source</th>
+                  <th className="py-3 px-4 font-normal">Workout</th>
+                  <th className="py-3 px-4 font-normal">Date</th>
+                  <th className="py-3 px-4 font-normal">Distance</th>
+                  <th className="py-3 px-4 font-normal">Avg Pace</th>
+                  <th className="py-3 px-4 font-normal">Avg HR</th>
+                  <th className="py-3 px-4 font-normal">TRIMP Load</th>
+                  <th className="py-3 px-4 font-normal">Category</th>
+                  <th className="py-3 px-4 font-normal">Source</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-900 font-mono">
+              <tbody className="divide-y divide-[#eae8e4] font-mono">
                 {activities.length > 0 ? (
                   activities.map((act) => (
-                    <tr key={act.id} className="hover:bg-zinc-900/40 transition-colors">
-                      <td className="py-3.5 px-4 font-sans font-medium text-white">{act.title}</td>
-                      <td className="py-3.5 px-4 text-zinc-400">{act.start_date.slice(0, 10)}</td>
-                      <td className="py-3.5 px-4 text-emerald-400 font-bold">{(act.distance_meters / 1000.0).toFixed(2)} km</td>
-                      <td className="py-3.5 px-4 text-zinc-200">{act.pace_formatted}</td>
-                      <td className="py-3.5 px-4 text-zinc-300">
+                    <tr key={act.id} className="hover:bg-[#fbfbfa] transition-colors">
+                      <td className="py-3.5 px-4 font-sans font-medium text-[#1c1c1a]">{act.title}</td>
+                      <td className="py-3.5 px-4 text-[#73726d]">{act.start_date.slice(0, 10)}</td>
+                      <td className="py-3.5 px-4 text-[#c84b31] font-bold">{(act.distance_meters / 1000.0).toFixed(2)} km</td>
+                      <td className="py-3.5 px-4 text-[#1c1c1a]">{act.pace_formatted}</td>
+                      <td className="py-3.5 px-4 text-[#73726d]">
                         {act.average_heartrate ? (
                           <span className="flex items-center gap-1">
-                            <Heart className="w-3 h-3 text-rose-500" />
+                            <Heart className="w-3 h-3 text-[#c84b31]" />
                             {Math.round(act.average_heartrate)} bpm
                           </span>
                         ) : '--'}
                       </td>
-                      <td className="py-3.5 px-4 text-zinc-400">{act.trimp_score ? act.trimp_score.toFixed(1) : '--'}</td>
+                      <td className="py-3.5 px-4 text-[#73726d]">{act.trimp_score ? act.trimp_score.toFixed(1) : '--'}</td>
                       <td className="py-3.5 px-4">
-                        <span className="px-2 py-0.5 rounded text-[10px] uppercase font-sans font-medium bg-zinc-900 text-zinc-300 border border-zinc-800">
+                        <span className="px-2 py-0.5 rounded text-[10px] uppercase font-sans font-medium bg-[#f4f3ef] text-[#1c1c1a] border border-[#eae8e4]">
                           {act.workout_category}
                         </span>
                       </td>
-                      <td className="py-3.5 px-4 text-zinc-500 capitalize">{act.source}</td>
+                      <td className="py-3.5 px-4 text-[#73726d] capitalize">{act.source}</td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={8} className="py-12 text-center text-zinc-500 font-sans">
-                      No activities recorded yet. Import GPX files or log a workout above.
+                    <td colSpan={8} className="py-12 text-center text-[#73726d] font-sans">
+                      {loading ? 'Retrieving workout log...' : 'No activities recorded yet. Import GPX files or log a workout above.'}
                     </td>
                   </tr>
                 )}
@@ -185,43 +189,45 @@ export default function ActivitiesPage() {
 
         {/* Add Modal */}
         {showAddModal && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="w-full max-w-md bg-zinc-950 border border-zinc-800 rounded-2xl p-6 shadow-2xl">
-              <h2 className="text-lg font-bold text-white mb-4">Log Running Activity</h2>
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+            <div className="w-full max-w-md bg-[#ffffff] border border-[#eae8e4] rounded-xl p-6 shadow-xl">
+              <h2 className="text-lg font-serif font-bold text-[#1c1c1a] mb-4">Log Running Activity</h2>
 
               <form onSubmit={handleManualSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-mono text-zinc-400 mb-1">RUN TITLE</label>
+                  <label className="block text-xs font-mono uppercase text-[#73726d] mb-1">Workout Title</label>
                   <input
                     type="text"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-sm text-white"
+                    className="w-full px-3 py-2 rounded bg-[#ffffff] border border-[#eae8e4] text-sm text-[#1c1c1a] focus:outline-none focus:border-[#c84b31]"
                     required
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-mono text-zinc-400 mb-1">DISTANCE (KM)</label>
+                    <label className="block text-xs font-mono uppercase text-[#73726d] mb-1">Distance (KM)</label>
                     <input
                       type="number"
                       step="0.01"
+                      min="0.1"
                       value={distanceKm}
                       onChange={(e) => setDistanceKm(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-sm text-white font-mono"
+                      className="w-full px-3 py-2 rounded bg-[#ffffff] border border-[#eae8e4] text-sm text-[#1c1c1a] font-mono focus:outline-none focus:border-[#c84b31]"
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-mono text-zinc-400 mb-1">DURATION (MINUTES)</label>
+                    <label className="block text-xs font-mono uppercase text-[#73726d] mb-1">Duration (Minutes)</label>
                     <input
                       type="number"
                       step="0.1"
+                      min="1"
                       value={durationMin}
                       onChange={(e) => setDurationMin(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-sm text-white font-mono"
+                      className="w-full px-3 py-2 rounded bg-[#ffffff] border border-[#eae8e4] text-sm text-[#1c1c1a] font-mono focus:outline-none focus:border-[#c84b31]"
                       required
                     />
                   </div>
@@ -229,35 +235,37 @@ export default function ActivitiesPage() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-mono text-zinc-400 mb-1">AVG HEART RATE</label>
+                    <label className="block text-xs font-mono uppercase text-[#73726d] mb-1">Avg Heart Rate</label>
                     <input
                       type="number"
+                      min="40"
+                      max="230"
                       value={avgHr}
                       onChange={(e) => setAvgHr(e.target.value)}
                       placeholder="150"
-                      className="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-sm text-white font-mono"
+                      className="w-full px-3 py-2 rounded bg-[#ffffff] border border-[#eae8e4] text-sm text-[#1c1c1a] font-mono focus:outline-none focus:border-[#c84b31]"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-mono text-zinc-400 mb-1">RPE EFFORT (1-10)</label>
+                    <label className="block text-xs font-mono uppercase text-[#73726d] mb-1">RPE Exertion (1-10)</label>
                     <input
                       type="number"
                       min="1"
                       max="10"
                       value={rpe}
                       onChange={(e) => setRpe(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-sm text-white font-mono"
+                      className="w-full px-3 py-2 rounded bg-[#ffffff] border border-[#eae8e4] text-sm text-[#1c1c1a] font-mono focus:outline-none focus:border-[#c84b31]"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-mono text-zinc-400 mb-1">WORKOUT CATEGORY</label>
+                  <label className="block text-xs font-mono uppercase text-[#73726d] mb-1">Category</label>
                   <select
                     value={workoutCat}
                     onChange={(e) => setWorkoutCat(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-sm text-white"
+                    className="w-full px-3 py-2 rounded bg-[#ffffff] border border-[#eae8e4] text-sm text-[#1c1c1a] focus:outline-none focus:border-[#c84b31]"
                   >
                     <option value="easy">Easy Aerobic</option>
                     <option value="tempo">Threshold Tempo</option>
@@ -267,17 +275,17 @@ export default function ActivitiesPage() {
                   </select>
                 </div>
 
-                <div className="flex items-center justify-end gap-3 pt-4 border-t border-zinc-900">
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#eae8e4]">
                   <button
                     type="button"
                     onClick={() => setShowAddModal(false)}
-                    className="px-4 py-2 rounded-lg border border-zinc-800 text-xs font-medium text-zinc-400 hover:text-white"
+                    className="px-4 py-2 rounded border border-[#eae8e4] text-xs font-medium text-[#73726d] hover:text-[#1c1c1a]"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 rounded-lg bg-emerald-500 text-black text-xs font-bold hover:bg-emerald-400"
+                    className="px-4 py-2 rounded bg-[#c84b31] text-white text-xs font-medium hover:bg-[#b03e26]"
                   >
                     Save Activity
                   </button>
