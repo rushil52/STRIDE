@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+.venv/
+backend/venv/
+__pycache__/
+*.pyc
+
+# Testing & Coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Production Builds
+.next/
+out/
+build/
+dist/
+
+# SQLite & Local DB
+*.db
+*.sqlite3
+
+# Environment & Secrets
+.env
+backend/.env
+frontend/.env.local
+frontend/.env
+
+# OS Artifacts
+.DS_Store
+*.pem
