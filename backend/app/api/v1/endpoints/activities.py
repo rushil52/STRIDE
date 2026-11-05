@@ -1,12 +1,13 @@
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc, func
+from sqlalchemy import select, desc, func, delete
 from app.db.session import get_db
 from app.models.user import User
 from app.models.activity import Activity
 from app.models.metric import DailyMetric
+from app.models.prediction import TrainingPlan, RacePrediction
 from app.schemas.activity import ActivityCreate, ActivityResponse, ActivitySummary
 from app.api.deps import get_current_user
 from app.ml.sports_science import calculate_pace_sec_km, calculate_banister_trimp, format_pace, format_duration
@@ -161,8 +162,8 @@ async def seed_synthetic_activities(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Seeds realistic physiological running data for immediate local development,
-    analytics visualization, and machine learning model validation.
+    Explicitly adds synthetic running data for the authenticated athlete ONLY
+    when requested by user.
     """
     synthetic_runs = generate_synthetic_runner_history(num_days=days, runner_profile=profile)
     inserted = []
@@ -196,6 +197,42 @@ async def seed_synthetic_activities(
     for act in inserted:
         await db.refresh(act)
     return [serialize_activity(act) for act in inserted]
+
+@router.delete("/synthetic", response_model=Dict[str, Any])
+async def delete_synthetic_activities(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Permanently deletes all synthetic demo activities belonging to the authenticated user,
+    leaving any genuine manual, Strava, or GPX/FIT entries intact.
+    Also clears associated derived training plans and predictions.
+    """
+    # 1. Delete synthetic activities for this user
+    delete_acts_stmt = (
+        delete(Activity)
+        .where(Activity.user_id == current_user.id, Activity.source == "synthetic")
+    )
+    res = await db.execute(delete_acts_stmt)
+    deleted_count = res.rowcount
+
+    # 2. Check if user has any remaining activities
+    remaining_stmt = select(func.count(Activity.id)).where(Activity.user_id == current_user.id)
+    remaining_count = (await db.execute(remaining_stmt)).scalar() or 0
+
+    # 3. If zero activities remain, reset derived training plans & predictions
+    if remaining_count == 0:
+        await db.execute(delete(TrainingPlan).where(TrainingPlan.user_id == current_user.id))
+        await db.execute(delete(RacePrediction).where(RacePrediction.user_id == current_user.id))
+        await db.execute(delete(DailyMetric).where(DailyMetric.user_id == current_user.id))
+
+    await db.commit()
+
+    return {
+        "status": "success",
+        "deleted_activities": deleted_count,
+        "remaining_activities": remaining_count
+    }
 
 @router.get("/summary", response_model=ActivitySummary)
 async def get_summary_stats(
